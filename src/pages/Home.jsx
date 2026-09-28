@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import PricingTable from "../PricingTable";
 
@@ -25,15 +25,18 @@ export default function Home() {
     const [selectedCar, setSelectedCar] = useState('Car');
     const [showNotification, setShowNotification] = useState(false);
     const [adminClicks, setAdminClicks] = useState(0);
+    
+    const adminTimeoutRef = useRef(null);
 
     // Form State
     const [bookingForm, setBookingForm] = useState({ name: '', phone: '', date: '', days: '' });
-    const [contactForm, setContactForm] = useState({ firstName: '', lastName: '', query: '', city: '', state: '', zipCode: '' });
+    const [contactForm, setContactForm] = useState({ firstName: '', lastName: '', query: '' });
 
     // Effects
     useEffect(() => {
-        // 5-second notification
-        setTimeout(() => setShowNotification(true), 5000);
+        // 5-second notification with cleanup to prevent memory leaks
+        const timer = setTimeout(() => setShowNotification(true), 5000);
+        return () => clearTimeout(timer);
     }, []);
 
     // Handlers
@@ -41,7 +44,10 @@ export default function Home() {
         const newCount = adminClicks + 1;
         setAdminClicks(newCount);
         if (newCount === 5) navigate('/admin');
-        setTimeout(() => setAdminClicks(0), 2000); 
+        
+        // Clear previous timeout so rapid clicks do not reset the counter prematurely
+        if (adminTimeoutRef.current) clearTimeout(adminTimeoutRef.current);
+        adminTimeoutRef.current = setTimeout(() => setAdminClicks(0), 2000); 
     };
 
     const openBookingModal = (carName) => {
@@ -51,15 +57,17 @@ export default function Home() {
 
     const submitBooking = (e) => {
         e.preventDefault();
-        const message = `Hello Carwallah! I want to book a car.%0A%0A🚘 *Car Model:* ${selectedCar}%0A👤 *Name:* ${bookingForm.name}%0A📞 *Contact:* ${bookingForm.phone}%0A📅 *Pick-up Date:* ${bookingForm.date}%0A⏳ *Duration:* ${bookingForm.days} Days`;
-        window.open(`https://wa.me/918595300552?text=${message}`, '_blank');
+        // Using \n for newlines and encodeURIComponent to safely format the URL
+        const message = `Hello Carwallah! I want to book a car.\n\n🚘 *Car Model:* ${selectedCar}\n👤 *Name:* ${bookingForm.name}\n📞 *Contact:* ${bookingForm.phone}\n📅 *Pick-up Date:* ${bookingForm.date}\n⏳ *Duration:* ${bookingForm.days} Days`;
+        window.open(`https://wa.me/918595300552?text=${encodeURIComponent(message)}`, '_blank');
         setModalOpen(false);
     };
 
     const submitContact = (e) => {
         e.preventDefault();
-        const message = `Hello Carwallah! Here is my inquiry:%0A%0A*Name:* ${contactForm.firstName} ${contactForm.lastName}%0A*Query:* ${contactForm.query}%0A*Location:* ${contactForm.city}, ${contactForm.state} - ${contactForm.zipCode}`;
-        window.open(`https://wa.me/918595300552?text=${message}`, '_blank');
+        // Removed undefined location fields to match the UI inputs perfectly
+        const message = `Hello Carwallah! Here is my inquiry:\n\n*Name:* ${contactForm.firstName} ${contactForm.lastName}\n*Query:* ${contactForm.query}`;
+        window.open(`https://wa.me/918595300552?text=${encodeURIComponent(message)}`, '_blank');
     };
 
     return (
@@ -142,10 +150,10 @@ export default function Home() {
                         
                         <form onSubmit={submitContact} className="space-y-4 md:space-y-6 max-w-4xl mx-auto">
                             <div className="flex flex-col md:flex-row gap-4 md:gap-6">
-                                <input type="text" placeholder="First Name" required className="w-full md:w-1/2 p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all shadow-sm" onChange={e => setContactForm({...contactForm, firstName: e.target.value})} />
-                                <input type="text" placeholder="Last Name" required className="w-full md:w-1/2 p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all shadow-sm" onChange={e => setContactForm({...contactForm, lastName: e.target.value})} />
+                                <input type="text" placeholder="First Name" required className="w-full md:w-1/2 p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all shadow-sm" onChange={e => setContactForm(prev => ({...prev, firstName: e.target.value}))} />
+                                <input type="text" placeholder="Last Name" required className="w-full md:w-1/2 p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all shadow-sm" onChange={e => setContactForm(prev => ({...prev, lastName: e.target.value}))} />
                             </div>
-                            <textarea placeholder="How can we help you?" required rows="4" className="w-full p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all resize-none shadow-sm" onChange={e => setContactForm({...contactForm, query: e.target.value})}></textarea>
+                            <textarea placeholder="How can we help you?" required rows="4" className="w-full p-3.5 md:p-4 bg-white/70 border border-[#D9D3C7] rounded-xl text-[#2C2926] placeholder-[#8A847A] focus:outline-none focus:border-[#D4AF37] focus:ring-1 focus:ring-[#D4AF37] transition-all resize-none shadow-sm" onChange={e => setContactForm(prev => ({...prev, query: e.target.value}))}></textarea>
                             
                             <button type="submit" className="w-full md:w-auto md:px-12 bg-gradient-to-r from-[#2BB741] to-[#25A138] text-white py-3.5 md:py-4 rounded-xl font-bold shadow-[0_8px_20px_rgba(43,183,65,0.3)] hover:shadow-[0_12px_25px_rgba(43,183,65,0.4)] hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-2 mx-auto">
                                 <i className="fa-brands fa-whatsapp text-xl"></i> Send via WhatsApp
@@ -222,13 +230,13 @@ export default function Home() {
                         <button onClick={() => setModalOpen(false)} className="absolute top-4 md:top-5 right-4 md:right-5 text-2xl md:text-3xl text-[#8A847A] hover:text-[#2C2926] transition-colors">&times;</button>
                         <h3 className="text-2xl md:text-3xl font-serif font-bold mb-6 text-[#2C2926]">Book <span className="text-[#D4AF37]">{selectedCar}</span></h3>
                         <form onSubmit={submitBooking} className="space-y-4 md:space-y-5">
-                            <input type="text" required placeholder="Full Name" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm({...bookingForm, name: e.target.value})} />
-                            <input type="tel" required placeholder="Phone Number" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm({...bookingForm, phone: e.target.value})} />
+                            <input type="text" required placeholder="Full Name" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm(prev => ({...prev, name: e.target.value}))} />
+                            <input type="tel" required placeholder="Phone Number" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm(prev => ({...prev, phone: e.target.value}))} />
                             <div className="relative">
                                 <label className="text-[10px] md:text-xs text-[#8A847A] absolute -top-2 left-3 bg-white px-1">Pick-up Date</label>
-                                <input type="date" required className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors text-[#5C5751] shadow-inner text-sm md:text-base" onChange={e => setBookingForm({...bookingForm, date: e.target.value})} />
+                                <input type="date" required className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors text-[#5C5751] shadow-inner text-sm md:text-base" onChange={e => setBookingForm(prev => ({...prev, date: e.target.value}))} />
                             </div>
-                            <input type="number" required placeholder="Number of Days" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm({...bookingForm, days: e.target.value})} />
+                            <input type="number" required placeholder="Number of Days" className="w-full p-3.5 bg-[#FDFBF7] border border-[#E8E3DA] rounded-xl focus:outline-none focus:border-[#D4AF37] transition-colors shadow-inner text-sm md:text-base" onChange={e => setBookingForm(prev => ({...prev, days: e.target.value}))} />
                             <button type="submit" className="w-full bg-gradient-to-r from-[#D4AF37] to-[#C5A028] text-[#FDFBF7] font-bold text-base md:text-lg py-3.5 md:py-4 rounded-xl shadow-[0_8px_20px_rgba(212,175,55,0.3)] hover:shadow-[0_12px_25px_rgba(212,175,55,0.4)] hover:-translate-y-1 transition-all duration-300 mt-2 flex items-center justify-center gap-2">
                                 <i className="fa-brands fa-whatsapp text-xl"></i> Confirm Booking
                             </button>
